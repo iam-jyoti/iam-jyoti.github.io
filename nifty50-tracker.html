@@ -1,0 +1,229 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+			<title>Indian Stock Market Indices Tracker</title>
+			<meta charset="utf-8" />
+			<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+			<link rel="stylesheet" href="assets/css/main.css" />
+			<link rel="shortcut icon" href="images/shield.jpg" type="image/x-icon">
+			<!-- Add Chart.js for visualization -->
+			<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+			<style>
+				.chart-container {
+					position: relative;
+					margin: auto;
+					height: 400px;
+					width: 80%;
+				}
+				.data-table {
+					width: 100%;
+					margin-top: 2em;
+				}
+				.data-table th, .data-table td {
+					text-align: center;
+				}
+				.price-up {
+					color: #4caf50;
+				}
+				.price-down {
+					color: #f44336;
+				}
+			</style>
+		</head>
+		<body class="is-preload">
+			<!-- Header -->
+			<section id="header">
+				<header>
+					<span class="image avatar"><img src="images/avatar.jpg" alt="" /></span>
+					<h1 id="logo"><a href="#">Jyoti Ranjan Mohapatra</a></h1>
+					<p>I got reprogrammed by a rogue AI<br />
+					and now I'm totally free</p>
+				</header>
+				<nav id="nav">
+					<ul>
+						<li><a href="index.html#one">About</a></li>
+						<li><a href="index.html#two">Things I Can Do</a></li>
+						<li><a href="index.html#three">A Few Accomplishments</a></li>
+						<li><a href="ai-tools.html">AI Tools</a></li>
+						<li><a href="index.html#four">Funny Quotes</a></li>
+						<li><a href="index.html#five">Contact</a></li>
+					</ul>
+				</nav>
+				<footer>
+					<ul class="icons">
+						<li><a href="https://www.linkedin.com/in/jrmohapatra/" target="_blank" class="icon brands fa-linkedin"><span class="label">Linkedin</span></a></li>
+						<li><a href="https://twitter.com/ASkywalker1991" target="_blank" class="icon brands fa-twitter"><span class="label">Twitter</span></a></li>
+						<li><a href="https://www.facebook.com/ag3ntskywalk3r" target="_blank" class="icon brands fa-facebook-f"><span class="label">Facebook</span></a></li>
+						<li><a href="https://www.instagram.com/agentskywalker/" target="_blank" class="icon brands fa-instagram"><span class="label">Instagram</span></a></li>
+						<li><a href="https://github.com/iam-jrm" target="_blank" class="icon brands fa-github"><span class="label">Github</span></a></li>
+						<li><a href="mailto:mail.jyotiranjan@gmail.com" target="_blank" class="icon solid fa-envelope"><span class="label">Email</span></a></li>
+					</ul>
+				</footer>
+			</section>
+
+			<!-- Wrapper -->
+			<div id="wrapper">
+				<!-- Main -->
+				<div id="main">
+					<section>
+						<div class="container">
+							<h2>Indian Stock Market Indices Tracker</h2>
+							<p>Real-time performance tracking of major Indian stock market indices</p>
+							
+							<!-- Index Selector -->
+							<div style="margin-bottom: 2em;">
+								<select id="indexSelector" style="width: 200px; padding: 8px;">
+									<option value="^NSEI">NIFTY 50</option>
+									<option value="^BSESN">BSE SENSEX</option>
+									<option value="^NSEBANK">NIFTY Bank</option>
+									<option value="^CNXIT">NIFTY IT</option>
+									<option value="^CNXAUTO">NIFTY Auto</option>
+									<option value="^CNXFMCG">NIFTY FMCG</option>
+								</select>
+							</div>
+							
+							<!-- Chart -->
+							<div class="chart-container">
+								<canvas id="niftyChart"></canvas>
+							</div>
+
+							<!-- Data Table -->
+							<table class="data-table">
+								<thead>
+									<tr>
+										<th>Date</th>
+										<th>Open</th>
+										<th>High</th>
+										<th>Low</th>
+										<th>Close</th>
+										<th>Change</th>
+										<th>% Change</th>
+									</tr>
+								</thead>
+								<tbody id="niftyData">
+									<!-- Data will be populated dynamically -->
+								</tbody>
+							</table>
+						</div>
+					</section>
+				</div>
+
+				<!-- Footer -->
+				<section id="footer">
+					<div class="container">
+						<ul class="copyright">
+							<li>&copy; Jyoti Ranjan Mohapatra. All rights reserved.</li>
+							<li>Powered by <a href="https://github.com/iam-jrm" target="_blank">Github</a></li>
+						</ul>
+					</div>
+				</section>
+			</div>
+
+			<!-- Scripts -->
+			<script>
+				let currentIndex = '^NSEI';
+				let currentChart = null;
+
+				// Handle index selection change
+				document.getElementById('indexSelector').addEventListener('change', function(e) {
+					currentIndex = e.target.value;
+					fetchIndexData();
+				});
+
+				// Function to fetch index data
+				async function fetchIndexData() {
+					try {
+						const yahooResponse = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${currentIndex}?interval=1d`);
+						const yahooData = await yahooResponse.json();
+						const result = yahooData.chart.result[0];
+						const quotes = result.indicators.quote[0];
+						const timestamps = result.timestamp;
+						
+						const processedData = timestamps.map((timestamp, i) => ({
+							date: new Date(timestamp * 1000).toLocaleDateString(),
+							open: quotes.open[i],
+							dayHigh: quotes.high[i],
+							dayLow: quotes.low[i],
+							lastPrice: quotes.close[i],
+							change: i > 0 ? quotes.close[i] - quotes.close[i-1] : 0,
+							pChange: i > 0 ? ((quotes.close[i] - quotes.close[i-1]) / quotes.close[i-1] * 100) : 0
+						})).filter(item => item.open !== null);
+						
+						updateChart(processedData);
+						updateTable(processedData);
+					} catch (error) {
+						console.error('Error fetching index data:', error);
+						document.getElementById('niftyData').innerHTML = '<tr><td colspan="7">Unable to fetch data. Please try again later.</td></tr>';
+					}
+				}
+
+				// Function to update the chart
+				function updateChart(data) {
+					const ctx = document.getElementById('niftyChart').getContext('2d');
+					
+					if (currentChart) {
+						currentChart.destroy();
+					}
+					
+					currentChart = new Chart(ctx, {
+						type: 'line',
+						data: {
+							labels: data.map(item => item.date),
+							datasets: [{
+								label: document.getElementById('indexSelector').options[document.getElementById('indexSelector').selectedIndex].text,
+								data: data.map(item => item.lastPrice),
+								borderColor: '#4acaa8',
+								tension: 0.1
+							}]
+						},
+						options: {
+							responsive: true,
+							maintainAspectRatio: false,
+							plugins: {
+								title: {
+									display: true,
+									text: 'Index Performance - Last 30 Days'
+								}
+							}
+						}
+					});
+				}
+
+				// Function to update the table
+				function updateTable(data) {
+					const tbody = document.getElementById('niftyData');
+					tbody.innerHTML = '';
+
+					data.slice(0, 7).forEach(item => {
+						const row = document.createElement('tr');
+						const change = parseFloat(item.change).toFixed(2);
+						const changePercent = parseFloat(item.pChange).toFixed(2);
+						
+						row.innerHTML = `
+							<td>${item.date}</td>
+							<td>${parseFloat(item.open).toFixed(2)}</td>
+							<td>${parseFloat(item.dayHigh).toFixed(2)}</td>
+							<td>${parseFloat(item.dayLow).toFixed(2)}</td>
+							<td>${parseFloat(item.lastPrice).toFixed(2)}</td>
+							<td class="${change >= 0 ? 'price-up' : 'price-down'}">${change >= 0 ? '+' : ''}${change}</td>
+							<td class="${change >= 0 ? 'price-up' : 'price-down'}">${changePercent >= 0 ? '+' : ''}${changePercent}%</td>
+						`;
+						tbody.appendChild(row);
+					});
+				}
+
+				// Fetch data initially
+				fetchIndexData();
+
+				// Update data every 5 minutes
+				setInterval(fetchIndexData, 5 * 60 * 1000);
+			</script>
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/jquery.scrollex.min.js"></script>
+			<script src="assets/js/jquery.scrolly.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+		</body>
+	</html>
