@@ -73,12 +73,21 @@
 							<!-- Index Selector -->
 							<div style="margin-bottom: 2em;">
 								<select id="indexSelector" style="width: 200px; padding: 8px;">
-									<option value="^NSEI">NIFTY 50</option>
-									<option value="^BSESN">BSE SENSEX</option>
-									<option value="^NSEBANK">NIFTY Bank</option>
-									<option value="^CNXIT">NIFTY IT</option>
-									<option value="^CNXAUTO">NIFTY Auto</option>
-									<option value="^CNXFMCG">NIFTY FMCG</option>
+									<option value="^NSEI" data-fmp-symbol="^NSEI" data-av-symbol="^NSEI">NIFTY 50 (India)</option>
+									<option value="^BSESN" data-fmp-symbol="^BSESN" data-av-symbol="^BSESN">BSE SENSEX (India)</option>
+									<option value="^NSEBANK" data-fmp-symbol="^NSEBANK" data-av-symbol="NIFTY_BANK.NS">NIFTY Bank (India)</option>
+									<option value="^CNXIT" data-fmp-symbol="^CNXIT" data-av-symbol="CNXIT.NS">NIFTY IT (India)</option>
+									<option value="^CNXAUTO" data-fmp-symbol="^CNXAUTO" data-av-symbol="CNXAUTO.NS">NIFTY Auto (India)</option>
+									<option value="^CNXFMCG" data-fmp-symbol="^CNXFMCG" data-av-symbol="CNXFMCG.NS">NIFTY FMCG (India)</option>
+									<option value="^GSPC" data-fmp-symbol="^GSPC" data-av-symbol="^GSPC">S&P 500 (USA)</option>
+									<option value="^DJI" data-fmp-symbol="^DJI" data-av-symbol="^DJI">Dow Jones (USA)</option>
+									<option value="^IXIC" data-fmp-symbol="^IXIC" data-av-symbol="^IXIC">NASDAQ Composite (USA)</option>
+									<option value="^FTSE" data-fmp-symbol="^FTSE" data-av-symbol="^FTSE">FTSE 100 (UK)</option>
+									<option value="^GDAXI" data-fmp-symbol="^GDAXI" data-av-symbol="^GDAXI">DAX (Germany)</option>
+									<option value="^FCHI" data-fmp-symbol="^FCHI" data-av-symbol="^FCHI">CAC 40 (France)</option>
+									<option value="^N225" data-fmp-symbol="^N225" data-av-symbol="^N225">Nikkei 225 (Japan)</option>
+									<option value="^HSI" data-fmp-symbol="^HSI" data-av-symbol="^HSI">Hang Seng (Hong Kong)</option>
+									<option value="^SSEC" data-fmp-symbol="000001.SS" data-av-symbol="000001.SS">SSE Composite (China)</option>
 								</select>
 							</div>
 							
@@ -121,44 +130,130 @@
 
 			<!-- Scripts -->
 			<script>
-				let currentIndex = '^NSEI';
+				const FMP_API_KEY = 'YOUR_FMP_API_KEY'; // Replace with your FMP API key
+				const ALPHA_VANTAGE_API_KEY = 'YOUR_ALPHA_VANTAGE_API_KEY'; // Replace with your Alpha Vantage API key
 				let currentChart = null;
 
 				// Handle index selection change
 				document.getElementById('indexSelector').addEventListener('change', function(e) {
-					currentIndex = e.target.value;
 					fetchIndexData();
 				});
 
+				// Function to get selected index symbols
+				function getSelectedSymbols() {
+					const selector = document.getElementById('indexSelector');
+					const selectedOption = selector.options[selector.selectedIndex];
+					return {
+						name: selectedOption.text,
+						yahoo: selectedOption.value, // Keep for reference or if needed later
+						fmp: selectedOption.getAttribute('data-fmp-symbol'),
+						av: selectedOption.getAttribute('data-av-symbol')
+					};
+				}
+
 				// Function to fetch index data
 				async function fetchIndexData() {
-					try {
-						const yahooResponse = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${currentIndex}?interval=1d`);
-						const yahooData = await yahooResponse.json();
-						const result = yahooData.chart.result[0];
-						const quotes = result.indicators.quote[0];
-						const timestamps = result.timestamp;
-						
-						const processedData = timestamps.map((timestamp, i) => ({
-							date: new Date(timestamp * 1000).toLocaleDateString(),
-							open: quotes.open[i],
-							dayHigh: quotes.high[i],
-							dayLow: quotes.low[i],
-							lastPrice: quotes.close[i],
-							change: i > 0 ? quotes.close[i] - quotes.close[i-1] : 0,
-							pChange: i > 0 ? ((quotes.close[i] - quotes.close[i-1]) / quotes.close[i-1] * 100) : 0
-						})).filter(item => item.open !== null);
-						
-						updateChart(processedData);
+					const symbols = getSelectedSymbols();
+					let processedData = null;
+					let errorOccurred = false;
+
+					// Try FMP first
+					if (FMP_API_KEY !== 'CjZcuE0X23ly8DcAhFxgYOwGclwAcCTe' && symbols.fmp) {
+						try {
+							console.log(`Fetching data from FMP for ${symbols.fmp}`);
+							const fmpResponse = await fetch(`https://financialmodelingprep.com/api/v3/historical-price-full/${symbols.fmp}?apikey=${FMP_API_KEY}`);
+							if (!fmpResponse.ok) throw new Error(`FMP API request failed with status ${fmpResponse.status}`);
+							const fmpData = await fmpResponse.json();
+							
+							if (fmpData.historical && fmpData.historical.length > 0) {
+								processedData = fmpData.historical.slice(0, 30).map((item, i, arr) => ({
+									date: new Date(item.date).toLocaleDateString(),
+									open: item.open,
+									dayHigh: item.high,
+									dayLow: item.low,
+									lastPrice: item.close,
+									change: i < arr.length - 1 ? item.close - arr[i+1].close : 0,
+									pChange: i < arr.length - 1 ? ((item.close - arr[i+1].close) / arr[i+1].close * 100) : 0
+								})).reverse();
+							} else if (fmpData["Error Message"]) {
+                                throw new Error(`FMP API Error: ${fmpData["Error Message"]}`);
+                            } else {
+								throw new Error('No historical data found in FMP response or unexpected format.');
+							}
+							console.log('Successfully fetched and processed data from FMP.');
+						} catch (error) {
+							console.error('Error fetching FMP data:', error);
+							errorOccurred = true;
+						}
+					} else {
+						console.log('FMP API key not provided or FMP symbol missing, skipping FMP.');
+						errorOccurred = true;
+					}
+
+					// If FMP failed or was skipped, try Alpha Vantage
+					if (errorOccurred && ALPHA_VANTAGE_API_KEY !== 'RUJ5B5HEXUBX1BP1' && symbols.av) {
+						console.log(`Fetching data from Alpha Vantage for ${symbols.av}`);
+						errorOccurred = false;
+						try {
+							const avResponse = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbols.av}&apikey=${ALPHA_VANTAGE_API_KEY}&outputsize=compact`);
+							if (!avResponse.ok) throw new Error(`Alpha Vantage API request failed with status ${avResponse.status}`);
+							const avData = await avResponse.json();
+
+							if (avData['Time Series (Daily)']) {
+								const timeSeries = avData['Time Series (Daily)'];
+								const dates = Object.keys(timeSeries).sort((a, b) => new Date(a) - new Date(b)).slice(-30);
+								let previousClose = null;
+								processedData = dates.map(date => {
+									const dayData = timeSeries[date];
+									const open = parseFloat(dayData['1. open']);
+									const high = parseFloat(dayData['2. high']);
+									const low = parseFloat(dayData['3. low']);
+									const close = parseFloat(dayData['4. close']);
+									let change = 0;
+									let pChange = 0;
+									if (previousClose !== null) {
+										change = close - previousClose;
+										pChange = (change / previousClose) * 100;
+									}
+									previousClose = close;
+									return {
+										date: new Date(date).toLocaleDateString(),
+										open: open,
+										dayHigh: high,
+										dayLow: low,
+										lastPrice: close,
+										change: change,
+										pChange: pChange
+									};
+								});
+							} else if (avData["Error Message"]) {
+                                throw new Error(`Alpha Vantage API Error: ${avData["Error Message"]}`);
+                            } else if (avData["Note"]) {
+                                throw new Error(`Alpha Vantage API Note (likely call limit): ${avData["Note"]}`);
+                            } else {
+								throw new Error('No time series data found in Alpha Vantage response or unexpected format.');
+							}
+							console.log('Successfully fetched and processed data from Alpha Vantage.');
+						} catch (error) {
+							console.error('Error fetching Alpha Vantage data:', error);
+							errorOccurred = true;
+						}
+					} else if (errorOccurred) {
+                        console.log('Alpha Vantage API key not provided or AV symbol missing, skipping Alpha Vantage.');
+                    }
+
+					if (processedData && processedData.length > 0) {
+						updateChart(processedData, symbols.name);
 						updateTable(processedData);
-					} catch (error) {
-						console.error('Error fetching index data:', error);
+					} else {
+						console.error('Failed to fetch data from all sources.');
 						document.getElementById('niftyData').innerHTML = '<tr><td colspan="7">Unable to fetch data. Please try again later.</td></tr>';
+						if (currentChart) currentChart.destroy();
 					}
 				}
 
 				// Function to update the chart
-				function updateChart(data) {
+				function updateChart(data, indexName) {
 					const ctx = document.getElementById('niftyChart').getContext('2d');
 					
 					if (currentChart) {
@@ -170,7 +265,7 @@
 						data: {
 							labels: data.map(item => item.date),
 							datasets: [{
-								label: document.getElementById('indexSelector').options[document.getElementById('indexSelector').selectedIndex].text,
+								label: indexName,
 								data: data.map(item => item.lastPrice),
 								borderColor: '#4acaa8',
 								tension: 0.1
@@ -215,8 +310,8 @@
 				// Fetch data initially
 				fetchIndexData();
 
-				// Update data every 5 minutes
-				setInterval(fetchIndexData, 5 * 60 * 1000);
+				// Update data every 15 minutes (900000 ms) - adjust as needed based on API limits
+				setInterval(fetchIndexData, 15 * 60 * 1000);
 			</script>
 			<script src="assets/js/jquery.min.js"></script>
 			<script src="assets/js/jquery.scrollex.min.js"></script>
