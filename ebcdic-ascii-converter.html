@@ -162,12 +162,11 @@
 				let ascii = '';
 				for (let i = 0; i < input.length; i += 2) {
 					if (i + 1 >= input.length) {
-						// Handle incomplete EBCDIC code
-						ascii += '!';
+						ascii += '©';
 						break;
 					}
 					const hex = input.slice(i, i + 2);
-					ascii += ebcdicToAscii[hex] || hex;
+					ascii += ebcdicToAscii[hex] || '©';
 				}
 				
 				// Animate the conversion
@@ -212,40 +211,29 @@
 				const input = e.target.value.replace(/[^0-9A-Fa-f\n]/g, '').toUpperCase(); // Remove non-hex characters except newlines
 				const asciiOutput = document.getElementById('asciiInputTwoRow');
 				
-				// Split input into rows
-				const rows = input.split('\n');
+				// Split input into rows and clean them
+				const rows = input.split('\n').map(row => row.trim());
+				if (rows.length < 2) return;  // Need at least two rows
+				
+				const topRow = rows[0];
+				const bottomRow = rows[1];
 				let ascii = '';
 				
-				// Process pairs of rows
-				for (let i = 0; i < rows.length - 1; i += 2) {
-					const topRow = rows[i];
-					const bottomRow = rows[i + 1] || '';
-					
-					// Combine corresponding characters from top and bottom rows
-					for (let j = 0; j < topRow.length; j += 2) {
-						if (j + 1 >= topRow.length) {
-							ascii += '!'; // Incomplete top row hex
-							continue;
-						}
-						const hex = topRow.slice(j, j + 2);
-						ascii += ebcdicToAscii[hex] || hex;
-					}
+				// Process the hex values in pairs
+				for (let i = 0; i < Math.min(topRow.length, bottomRow.length); i++) {
+					const hex = topRow[i] + bottomRow[i];
+					ascii += ebcdicToAscii[hex] || '©';
 				}
 				
-				// Format the EBCDIC display into two rows per character
-				let formattedEbcdic = '';
-				const hexValues = input.replace(/\n/g, '').match(/.{1,2}/g) || [];
-				
-				for (let i = 0; i < hexValues.length; i++) {
-					if (i > 0 && i % 8 === 0) { // New line after every 8 hex values
-						formattedEbcdic += '\n';
-					}
-					formattedEbcdic += hexValues[i] + ' ';
-				}
+				// Keep the input exactly as entered without adding spaces
+				const preservedInput = topRow + '\n' + bottomRow;
 				
 				// Animate the conversion
 				asciiOutput.classList.add('highlight');
 				asciiOutput.value = ascii;
+				
+				// Preserve the original input format
+				e.target.value = preservedInput;
 				
 				setTimeout(() => {
 					asciiOutput.classList.remove('highlight');
@@ -264,54 +252,20 @@
 				for (let char of input) {
 					const ebcdic = asciiToEbcdic[char] || char;
 					if (ebcdic.length === 2) {
-						// Split each hex value into two digits
-						topRow += ebcdic[0] + ' ';  // First digit
-						bottomRow += ebcdic[1] + ' ';  // Second digit
+						topRow += ebcdic[0];
+						bottomRow += ebcdic[1];
 					}
 				}
 				
-				// Combine rows with newline
-				const formattedEbcdic = topRow.trim() + '\n' + bottomRow.trim();
+				 // Keep original format without adding spaces
+				const preservedEbcdic = topRow + '\n' + bottomRow;
 				
 				// Animate the conversion
 				ebcdicOutput.classList.add('highlight');
-				ebcdicOutput.value = formattedEbcdic;
+				ebcdicOutput.value = preservedEbcdic;
 				
 				setTimeout(() => {
 					ebcdicOutput.classList.remove('highlight');
-				}, 300);
-			});
-
-			// EBCDIC Two-Row to ASCII conversion
-			document.getElementById('ebcdicInputTwoRow').addEventListener('input', function(e) {
-				const input = e.target.value;
-				const asciiOutput = document.getElementById('asciiInputTwoRow');
-				
-				// Split input into rows
-				const rows = input.trim().split('\n');
-				if (rows.length < 2) return;  // Need both rows
-				
-				const topRow = rows[0].trim().split(/\s+/);
-				const bottomRow = rows[1].trim().split(/\s+/);
-				
-				// Convert and animate
-				let ascii = '';
-				const minLength = Math.min(topRow.length, bottomRow.length);
-				
-				for (let i = 0; i < minLength; i++) {
-					// Combine digits from top and bottom rows
-					const hex = (topRow[i] + bottomRow[i]).toUpperCase();
-					if (hex.length === 2) {
-						ascii += ebcdicToAscii[hex] || hex;
-					}
-				}
-				
-				// Animate the conversion
-				asciiOutput.classList.add('highlight');
-				asciiOutput.value = ascii;
-				
-				setTimeout(() => {
-					asciiOutput.classList.remove('highlight');
 				}, 300);
 			});
 
